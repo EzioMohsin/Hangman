@@ -5,40 +5,34 @@ import java.net.*;
 import java.io.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.*;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.Timer;
-
-class TimedInput extends Thread
-{
-    String inp = "";
-
-    public void run()
-    {
-        Scanner sc = new Scanner(System.in);
-        this.inp = sc.nextLine();
-    }
-}
 
 class Hangman
 {
     String[] word_list;
     String word;
-    int lives, currMode, timeLim, time;
-    boolean blitz;
+    int lives, currMode, timeLim, time, aiLives, aiLevel;
+    boolean blitz, ai;
     JFrame frame;
     JPanel cont;
-    JLabel titleLabel, Doomed, guessedChars, InpTake, wordLabel, countDownLabel;
+    JLabel titleLabel, Doomed, guessedChars, InpTake, wordLabel, countDownLabel, aiDoomed, compLabel;
     JButton giveUp;
     MyKeyListener kls;
     ActionListener countdown;
     Timer timer;
+    AI_Hard aiOBJ_Hard;
+    AI_Easy aiOBJ_Easy;
+    AI_Normal aiOBJ_Normal;
 
     class MyKeyListener implements KeyListener
     {
         String guessLine = "<html><pre>Your Guesses: ";
-        char guessed[] = new char[26];
-        int current = 0;
+        char guessed[] = new char[26], aiRight[] = new char[0];
+        int indexes[] = new int[Hangman.this.word.length()];
+        int current = 0, correct = 0;
 
         @Override
         public void keyTyped(KeyEvent e)
@@ -59,6 +53,7 @@ class Hangman
             boolean guessedAlready = false;
             String wrd = "";
             int right = 0;
+            char aiGuess = ' ';
 
             for(int i = 0; i < this.guessed.length; i++)
             {
@@ -136,18 +131,126 @@ class Hangman
                 }
                 else if(Hangman.this.word.indexOf(inp) == -1)
                 {
-                    Hangman.this.InpTake.setText("Wrong Guess!");
+                    if(!Hangman.this.ai)
+                    {
+                        Hangman.this.InpTake.setText("Wrong Guess!");
+                    }
                     Hangman.this.lives--;
                     Hangman.this.Doomed.setText(Hangman.this.DrawMan(Hangman.this.lives));
 
                     if(Hangman.this.lives == 0)
                     {
+                        Hangman.this.InpTake.setText("Game Over! You Have Lost.");
                         Hangman.this.gameOver();
                     }
                 }
                 else
                 {
-                    Hangman.this.InpTake.setText("Correct Guess!");
+                    if(!Hangman.this.ai)
+                    {
+                        Hangman.this.InpTake.setText("Correct Guess!");
+                    }
+                }
+
+                if(Hangman.this.ai && Hangman.this.aiLives > 0 && right != Hangman.this.word.length() && Hangman.this.lives > 0)
+                {
+                    if(Hangman.this.aiLevel == 2)
+                    {
+                        aiGuess = Hangman.this.aiOBJ_Hard.wake();
+                        if(Hangman.this.word.indexOf(aiGuess) == -1)
+                        {
+                            Hangman.this.aiOBJ_Hard.update(false, this.aiRight, this.indexes);
+                            Hangman.this.InpTake.setText("The computer guessed wrong");
+                            Hangman.this.aiLives--;
+                            Hangman.this.aiDoomed.setText(Hangman.this.DrawMan(Hangman.this.aiLives));
+                            Hangman.this.countDownLabel.setText("Computer: Letters guessed " + this.aiRight.length + " out of " + Hangman.this.word.length());
+                        }
+                        else
+                        {
+                            Hangman.this.InpTake.setText("The computer guessed right");
+                            String newArrSTR = "";
+                            int index = 0;
+                            for(int i = 0; i < Hangman.this.word.length(); i++)
+                            {
+                                for(int j = 0; j < this.aiRight.length; j++)
+                                {
+                                    if(Hangman.this.word.charAt(i) == this.aiRight[j])
+                                    {
+                                        newArrSTR += this.aiRight[j] + ",";
+                                        this.indexes[index] = i;
+                                        index++;
+                                        break;
+                                    }
+                                }
+
+                                if(Hangman.this.word.charAt(i) == aiGuess)
+                                {
+                                    newArrSTR += aiGuess + ",";
+                                    this.indexes[index] = i;
+                                    index++;
+                                }
+                            }
+
+                            this.aiRight = new char[newArrSTR.split(",").length];
+
+                            for(int i = 0; i < newArrSTR.split(",").length; i++)
+                            {
+                                this.aiRight[i] = newArrSTR.split(",")[i].charAt(0);
+                            }
+
+                            Hangman.this.aiOBJ_Hard.update(true, this.aiRight, this.indexes);
+
+                            Hangman.this.countDownLabel.setText("Computer: Letters guessed " + this.aiRight.length + " out of " + Hangman.this.word.length());
+                        }
+                    }
+                    else
+                    {
+                        if(Hangman.this.aiLevel == 1)
+                        {
+                            aiGuess = Hangman.this.aiOBJ_Normal.getChar();
+                        }
+                        else
+                        {
+                            aiGuess = Hangman.this.aiOBJ_Easy.getChar();
+                        }
+                        if(Hangman.this.word.indexOf(aiGuess) == -1)
+                        {
+                            Hangman.this.InpTake.setText("The computer guessed wrong");
+                            Hangman.this.aiLives--;
+                            Hangman.this.aiDoomed.setText(Hangman.this.DrawMan(Hangman.this.aiLives));
+                            Hangman.this.countDownLabel.setText("Computer: Letters guessed " + this.correct + " out of " + Hangman.this.word.length());
+                        }
+                        else
+                        {
+                            Hangman.this.InpTake.setText("The computer guessed right");
+                            for(int i = 0; i < Hangman.this.word.length(); i++)
+                            {
+                                if(Hangman.this.word.charAt(i) == aiGuess)
+                                {
+                                    this.correct++;
+                                }
+                            }
+
+                            Hangman.this.countDownLabel.setText("Computer: Letters guessed " + this.correct + " out of " + Hangman.this.word.length());
+                        }
+                    }
+
+                    if(Hangman.this.aiLives == 0)
+                    {
+                        Hangman.this.countDownLabel.setText("Computer has lost all lives");
+                    }
+
+                    if(right == Hangman.this.word.length())
+                    {
+                        Hangman.this.InpTake.setText("Congratulations! You have won");
+                        Hangman.this.gameOver();
+                    }
+                    else if(this.aiRight.length == Hangman.this.word.length() || this.correct == Hangman.this.word.length())
+                    {
+                        Hangman.this.InpTake.setText("You have lost! The computer guessed the word");
+                        Hangman.this.lives = 0;
+                        Hangman.this.gameOver();
+                    }
                 }
             }
         }
@@ -259,8 +362,8 @@ class Hangman
 
     void game()
     {
-
         this.lives = this.currMode;
+        this.aiLives = this.currMode;
         this.word = this.word_list[(int)(Math.random() * 58109)];
         String Dashed = "";
 
@@ -275,7 +378,24 @@ class Hangman
         this.Doomed.setForeground(Color.decode("#C5299B"));
         this.Doomed.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
         this.Doomed.setOpaque(true);
+        this.Doomed.removeAll();
         this.cont.add(this.Doomed);
+
+        JLabel youLabel = new JLabel("");
+        youLabel.setBounds(0, 175, 750, 20);
+        youLabel.setBackground(Color.decode("#FFAD4A"));
+        youLabel.setForeground(Color.decode("#C5299B"));
+        youLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 17));
+        youLabel.setOpaque(true);
+        //this.youLabel.setVerticalAlignment(JLabel.BOTTOM);
+        //this.youLabel.setHorizontalAlignment(JLabel.LEFT);
+
+        this.aiDoomed = new JLabel(this.DrawMan(this.aiLives), SwingConstants.CENTER);
+        this.aiDoomed.setBounds(375, 195, 375, 200);
+        this.aiDoomed.setBackground(Color.decode("#FFAD4A"));
+        this.aiDoomed.setForeground(Color.decode("#C5299B"));
+        this.aiDoomed.setFont(new Font(Font.MONOSPACED, Font.BOLD, 20));
+        this.aiDoomed.setOpaque(true);
 
         for(int i = 0; i < this.word.length(); i++)
         {
@@ -347,6 +467,31 @@ class Hangman
             this.timer = new Timer(1000, this.countdown);
             this.timer.start();
         }
+        else if(this.ai)
+        {
+            this.Doomed.setBounds(0, 195, 375, 200);
+            this.Doomed.setBorder(BorderFactory.createLineBorder(Color.decode("#8a2be2")));
+            this.aiDoomed.setBorder(BorderFactory.createLineBorder(Color.decode("#8a2be2")));
+            this.wordLabel.setBounds(0, 395, 750, 80);
+            this.cont.add(this.aiDoomed);
+            youLabel.setText(" YOU                                  COMPUTER (" + (this.aiLevel == 0 ? "EASY)" : (this.aiLevel == 1 ? "NORMAL)" : "HARD)")));
+            this.cont.add(youLabel);
+            this.countDownLabel.setText("Computer: Letters guessed 0 out of " + this.word.length());
+            this.cont.add(this.countDownLabel);
+
+            if(this.aiLevel == 2)
+            {
+                this.aiOBJ_Hard = new AI_Hard(this.word_list, this.word.length());
+            }
+            else if(this.aiLevel == 1)
+            {
+                this.aiOBJ_Normal = new AI_Normal(this.word_list, this.word.length());
+            }
+            else
+            {
+                this.aiOBJ_Easy = new AI_Easy(this.word_list);
+            }
+        }
 
         this.giveUp.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
@@ -387,11 +532,13 @@ class Hangman
                 completeWrd += this.word.charAt(i) + " ";
             }
             this.wordLabel.setText(completeWrd);
-            this.InpTake.setText("Game Over! You Have Lost.");
         }
         else
         {
-            this.InpTake.setText("Game Over! You Won.");
+            if(!this.ai)
+            {
+                this.InpTake.setText("Game Over! You Won.");
+            }
         }
 
         JButton playAgain = new JButton("Play Again");
@@ -436,10 +583,10 @@ class Hangman
         this.frame.removeKeyListener(this.kls);
 
         this.cont.setBackground(Color.decode("#EEA47F"));
-        this.cont.setLayout(null);
 
         int inp = 0;
         this.blitz = false;
+        this.ai = false;
 
         this.cont.add(this.titleLabel);
 
@@ -454,7 +601,7 @@ class Hangman
 
         JButton NormalBtn = new JButton("Normal Game");
         NormalBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        NormalBtn.setBounds(25, 305, 250, 75);
+        NormalBtn.setBounds(25, 305, 300, 75);
         NormalBtn.setBackground(Color.decode("#00539C"));
         NormalBtn.setForeground(Color.decode("#EEA47F"));
         NormalBtn.setBorderPainted(false);
@@ -464,13 +611,23 @@ class Hangman
 
         JButton blitzBtn = new JButton("Blitz Game");
         blitzBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        blitzBtn.setBounds(25, 405, 250, 75);
+        blitzBtn.setBounds(25, 405, 300, 75);
         blitzBtn.setBackground(Color.decode("#00539C"));
         blitzBtn.setForeground(Color.decode("#EEA47F"));
         blitzBtn.setBorderPainted(false);
         blitzBtn.setOpaque(true);
         blitzBtn.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 23));
         this.cont.add(blitzBtn);
+
+        JButton aiVhuman = new JButton("Computer vs Human");
+        aiVhuman.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        aiVhuman.setBounds(25, 505, 300, 75);
+        aiVhuman.setBackground(Color.decode("#00539C"));
+        aiVhuman.setForeground(Color.decode("#EEA47F"));
+        aiVhuman.setBorderPainted(false);
+        aiVhuman.setOpaque(true);
+        aiVhuman.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 23));
+        this.cont.add(aiVhuman);
 
         JButton backBtn =  new JButton("Go Back");
         backBtn.setBounds(10, 670, 150, 50);
@@ -490,7 +647,7 @@ class Hangman
         EasyMode.setOpaque(true);
         EasyMode.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
 
-        JButton NormalMode =  new JButton("Normal Mode (6 lives)");
+        JButton NormalMode =  new JButton("Normal Mode (8 lives)");
         NormalMode.setCursor(new Cursor(Cursor.HAND_CURSOR));
         NormalMode.setBounds(25, 405, 300, 75);
         NormalMode.setBackground(Color.decode("#00539C"));
@@ -499,7 +656,7 @@ class Hangman
         NormalMode.setOpaque(true);
         NormalMode.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
 
-        JButton HardMode =  new JButton("Hard Mode (5 lives)");
+        JButton HardMode =  new JButton("Hard Mode (6 lives)");
         HardMode.setCursor(new Cursor(Cursor.HAND_CURSOR));
         HardMode.setBounds(25, 505, 300, 75);
         HardMode.setBackground(Color.decode("#00539C"));
@@ -535,15 +692,42 @@ class Hangman
         HardTime.setOpaque(true);
         HardTime.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
 
+        JButton EasyAI =  new JButton("Computer Difficulty: Easy");
+        EasyAI.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        EasyAI.setBounds(25, 305, 325, 75);
+        EasyAI.setBackground(Color.decode("#00539C"));
+        EasyAI.setForeground(Color.decode("#EEA47F"));
+        EasyAI.setBorderPainted(false);
+        EasyAI.setOpaque(true);
+        EasyAI.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
+
+        JButton NormalAI =  new JButton("Computer Difficulty: Normal");
+        NormalAI.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        NormalAI.setBounds(25, 405, 325, 75);
+        NormalAI.setBackground(Color.decode("#00539C"));
+        NormalAI.setForeground(Color.decode("#EEA47F"));
+        NormalAI.setBorderPainted(false);
+        NormalAI.setOpaque(true);
+        NormalAI.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
+
+        JButton HardAI =  new JButton("Computer Difficulty: Hard");
+        HardAI.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        HardAI.setBounds(25, 505, 325, 75);
+        HardAI.setBackground(Color.decode("#00539C"));
+        HardAI.setForeground(Color.decode("#EEA47F"));
+        HardAI.setBorderPainted(false);
+        HardAI.setOpaque(true);
+        HardAI.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 20));
+
         this.frame.revalidate();
         this.frame.repaint();
-        this.frame.setVisible(true);
 
         NormalBtn.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
             WelcomeTitle.setText("CHOOSE DIFFICULTY");
             Hangman.this.cont.remove(NormalBtn);
             Hangman.this.cont.remove(blitzBtn);
+            Hangman.this.cont.remove(aiVhuman);
             Hangman.this.cont.add(EasyMode);
             Hangman.this.cont.add(NormalMode);
             Hangman.this.cont.add(HardMode);
@@ -555,9 +739,10 @@ class Hangman
 
         backBtn.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
-             WelcomeTitle.setText("CHOOSE A MODE");
+             /*WelcomeTitle.setText("CHOOSE A MODE");
              Hangman.this.cont.add(NormalBtn);
              Hangman.this.cont.add(blitzBtn);
+             Hangman.this.cont.add(aiVhuman);
              Hangman.this.cont.remove(EasyMode);
              Hangman.this.cont.remove(NormalMode);
              Hangman.this.cont.remove(HardMode);
@@ -565,9 +750,30 @@ class Hangman
              Hangman.this.cont.remove(EasyTime);
              Hangman.this.cont.remove(NormalTime);
              Hangman.this.cont.remove(HardTime);
+             Hangman.this.cont.remove(EasyAI);
+             Hangman.this.cont.remove(HardAI);
              Hangman.this.frame.revalidate();
-             Hangman.this.frame.repaint();
+             Hangman.this.frame.repaint();*/
              Hangman.this.blitz = false;
+             Hangman.this.ai = false;
+             Hangman.this.init();
+         }
+        });
+
+        aiVhuman.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            WelcomeTitle.setText("CHOOSE DIFFICULTY");
+            Hangman.this.cont.remove(NormalBtn);
+            Hangman.this.cont.remove(blitzBtn);
+            Hangman.this.cont.remove(aiVhuman);
+            Hangman.this.cont.add(EasyMode);
+            Hangman.this.cont.add(NormalMode);
+            Hangman.this.cont.add(HardMode);
+            Hangman.this.cont.add(backBtn);
+            Hangman.this.frame.revalidate();
+            Hangman.this.frame.repaint();
+            Hangman.this.blitz = false;
+            Hangman.this.ai = true;
          }
         });
 
@@ -576,6 +782,7 @@ class Hangman
             WelcomeTitle.setText("CHOOSE DIFFICULTY");
             Hangman.this.cont.remove(NormalBtn);
             Hangman.this.cont.remove(blitzBtn);
+            Hangman.this.cont.remove(aiVhuman);
             Hangman.this.cont.add(EasyMode);
             Hangman.this.cont.add(NormalMode);
             Hangman.this.cont.add(HardMode);
@@ -583,17 +790,14 @@ class Hangman
             Hangman.this.frame.revalidate();
             Hangman.this.frame.repaint();
             Hangman.this.blitz = true;
+            Hangman.this.ai = false;
          }
         });
 
         EasyMode.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
             Hangman.this.currMode = 11;
-            if(!Hangman.this.blitz)
-            {
-                Hangman.this.game();
-            }
-            else
+            if(Hangman.this.blitz)
             {
                 WelcomeTitle.setText("CHOOSE TIME LIMIT");
                 Hangman.this.cont.remove(EasyMode);
@@ -604,20 +808,30 @@ class Hangman
                 Hangman.this.cont.add(HardTime);
                 Hangman.this.frame.revalidate();
                 Hangman.this.frame.repaint();
+            }
+            else if(Hangman.this.ai)
+            {
+                Hangman.this.cont.remove(EasyMode);
+                Hangman.this.cont.remove(NormalMode);
+                Hangman.this.cont.remove(HardMode);
+                Hangman.this.cont.add(EasyAI);
+                Hangman.this.cont.add(NormalAI);
+                Hangman.this.cont.add(HardAI);
+                Hangman.this.frame.revalidate();
+                Hangman.this.frame.repaint();
+            }
+            else
+            {
+                Hangman.this.game();
             }
          }
         });
 
         NormalMode.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
-            Hangman.this.currMode = 7;
-            if(!Hangman.this.blitz)
+            Hangman.this.currMode = 8;
+            if(Hangman.this.blitz)
             {
-                Hangman.this.game();
-            }
-            else
-            {
-                WelcomeTitle.setText("CHOOSE TIME LIMIT");
                 Hangman.this.cont.remove(EasyMode);
                 Hangman.this.cont.remove(NormalMode);
                 Hangman.this.cont.remove(HardMode);
@@ -626,6 +840,21 @@ class Hangman
                 Hangman.this.cont.add(HardTime);
                 Hangman.this.frame.revalidate();
                 Hangman.this.frame.repaint();
+            }
+            else if(Hangman.this.ai)
+            {
+                Hangman.this.cont.remove(EasyMode);
+                Hangman.this.cont.remove(NormalMode);
+                Hangman.this.cont.remove(HardMode);
+                Hangman.this.cont.add(EasyAI);
+                Hangman.this.cont.add(NormalAI);
+                Hangman.this.cont.add(HardAI);
+                Hangman.this.frame.revalidate();
+                Hangman.this.frame.repaint();
+            }
+            else
+            {
+                Hangman.this.game();
             }
          }
         });
@@ -633,11 +862,7 @@ class Hangman
         HardMode.addActionListener(new ActionListener() {
          public void actionPerformed(ActionEvent e) {
             Hangman.this.currMode = 6;
-            if(!Hangman.this.blitz)
-            {
-                Hangman.this.game();
-            }
-            else
+            if(Hangman.this.blitz)
             {
                 WelcomeTitle.setText("CHOOSE TIME LIMIT");
                 Hangman.this.cont.remove(EasyMode);
@@ -648,6 +873,21 @@ class Hangman
                 Hangman.this.cont.add(HardTime);
                 Hangman.this.frame.revalidate();
                 Hangman.this.frame.repaint();
+            }
+            else if(Hangman.this.ai)
+            {
+                Hangman.this.cont.remove(EasyMode);
+                Hangman.this.cont.remove(NormalMode);
+                Hangman.this.cont.remove(HardMode);
+                Hangman.this.cont.add(EasyAI);
+                Hangman.this.cont.add(NormalAI);
+                Hangman.this.cont.add(HardAI);
+                Hangman.this.frame.revalidate();
+                Hangman.this.frame.repaint();
+            }
+            else
+            {
+                Hangman.this.game();
             }
          }
         });
@@ -672,11 +912,33 @@ class Hangman
             Hangman.this.game();
          }
         });
+
+        EasyAI.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            Hangman.this.aiLevel = 0;
+            Hangman.this.game();
+         }
+        });
+
+        HardAI.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            Hangman.this.aiLevel = 2;
+            Hangman.this.game();
+         }
+        });
+
+        NormalAI.addActionListener(new ActionListener() {
+         public void actionPerformed(ActionEvent e) {
+            Hangman.this.aiLevel = 1;
+            Hangman.this.game();
+         }
+        });
     }
 
     Hangman()
     {
         int longest = 0;
+        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         this.frame = new JFrame("Hangman");
         this.frame.setSize(750, 750);
         this.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -696,81 +958,99 @@ class Hangman
         this.titleLabel.setOpaque(true);
         this.titleLabel.setFont(new Font(Font.SERIF, Font.BOLD, 14));
 
+        JLabel statusLabel = new JLabel("LOADING", SwingConstants.CENTER);
+        statusLabel.setBounds(0, 175, 750, 100);
+        statusLabel.setBackground(Color.decode("#FFAD4A"));
+        statusLabel.setForeground(Color.decode("#C5299B"));
+        statusLabel.setBorder(new EmptyBorder(0,10,0,0));
+        statusLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 55));
+        statusLabel.setOpaque(true);
+
+        JLabel loadLabel = new JLabel("", SwingConstants.CENTER);
+        loadLabel.setBounds(0, 275, 750, 475);
+        loadLabel.setForeground(Color.decode("#00539C"));
+        loadLabel.setFont(new Font(Font.MONOSPACED, Font.BOLD, 23));
+
         this.cont = new JPanel();
         this.frame.add(this.cont);
+        this.cont.setBackground(Color.decode("#EEA47F"));
+        this.cont.setLayout(null);
+        this.cont.add(this.titleLabel);
+        this.cont.add(loadLabel);
+        this.cont.add(statusLabel);
+        this.frame.setVisible(true);
+
+        //this.frame.setVisible(true);
+        String inputLine = "", loadSTR = "";
+
         try
         {
-            String inputLine = "";
+            in = new BufferedReader(new FileReader( new File("WordList.txt")));
+        }
+        catch(Exception e1)
+        {
+            try
+            {
+                URL url = new URL("http://www.mieliestronk.com/corncob_caps.txt");
+                HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                con.setRequestMethod("GET");
+                in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            }
+            catch(Exception e2)
+            {
+                System.exit(1);
+            }
+        }
 
-            URL url = new URL("http://www.mieliestronk.com/corncob_caps.txt");
-            HttpURLConnection con = (HttpURLConnection) url.openConnection();
-            con.setRequestMethod("GET");
+        String csv = "";
 
+        int i = 0;
 
-            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-
-            String csv = "";
-
-            int i = 0;
-            System.out.println("Loading...\n[____________________] 0%");
-
+        try
+        {
             while((inputLine = in.readLine()) != null)
             {
-                if(inputLine.length() > longest)
-                {
-                    longest = inputLine.length();
-                }
-                
                 if(i%(58108*5/100) == 0)
                 {
-                    System.out.print("\fLoading...\n");
-                    System.out.print("[");
 
                     int percentage = i/(58108*5/100);
 
+                    loadSTR = "[";
+
                     for(int j = 0; j < percentage; j++)
                     {
-                        System.out.print("███");
+                        loadSTR += "██";
                     }
 
                     for(int j = 0; j < 20 - percentage; j++)
                     {
-                        System.out.print("___");
+                        loadSTR += "__";
                     }
-                    System.out.println("] " + (i/(58108*5/100) * 5) + "%");
+                    loadSTR += ("] " + (i/(58108*5/100) * 5) + "%");
                 }
+
+
                 csv += inputLine + ",";
+                loadLabel.setText(loadSTR);
                 i++;
             }
+        }
+        catch(Exception e)
+        {
 
-            this.word_list = csv.split(",");
         }
-        catch (MalformedURLException e)
-        {
-            System.out.println("Internet is not connected");
-            System.exit(1);
-        }
-        catch (IOException e)
-        {
-            System.out.println("Internet is not connected");
-            System.exit(1);
-        }
+
+        this.word_list = csv.split(",");
 
         this.lives = 6;
         this.currMode = 6;
         this.blitz = false;
 
-        System.out.println(longest);
-
         this.init();
     }
-
-
 
     public static void main(String[] args)
     {
         Hangman obj = new Hangman();
     }
-
-
 }
